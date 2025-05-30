@@ -36,7 +36,8 @@ let receiveBuffer = [];
 let receivedSize = 0;
 
 let pc;
-let dataChannel;
+let fileDataChannel;
+let textDataChannel;
 let fileReader;
 
 let wsPort = ":12345";
@@ -89,10 +90,11 @@ ws.onerror = (ev) => {
 }
 
 function createPeerConnection(){
-  pc = new RTCPeerConnection();
-
-  if (!pc) {
-    window.alert("Please enable webrtc");
+  try{
+    pc = new RTCPeerConnection();
+  }catch(error){
+    status.innerText = error
+    // window.alert("Please enable webrtc");
   }
 
   pc.onicecandidate = ev => {
@@ -113,21 +115,30 @@ function createPeerConnection(){
 async function startConnect(){
   createPeerConnection();
 
-  dataChannel = pc.createDataChannel("sendDataChannel");
-  dataChannel.binaryType = 'arraybuffer';
+  textDataChannel = pc.createDataChannel("textDataChannel");
+  fileDataChannel = pc.createDataChannel("fileDataChannel");
+  fileDataChannel.binaryType = 'arraybuffer';
 
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
   ws.send(JSON.stringify({type: 'offer', sdp: offer.sdp})); 
 
-  dataChannel.addEventListener("open", () => {
+  textDataChannel.addEventListener("message", (ev) => {
+    onReceiveTextCallback(ev);
   });
-  dataChannel.addEventListener("close", () => {
-    closeDataChannel();
+
+  textDataChannel.addEventListener("close", () => {
+    closeDataChannels();
   });
-  dataChannel.addEventListener("message", (ev) => {
-    onReceiveMessageCallback(ev);
+
+  fileDataChannel.addEventListener("message", (ev) => {
+    onReceiveFileCallback(ev);
   });
+
+  fileDataChannel.addEventListener("close", () => {
+    closeDataChannels();
+  });
+
 }
 
 
@@ -136,7 +147,7 @@ async function handleOffer(offer){
     return
   }
 
-  await createPeerConnection();
+  createPeerConnection();
   pc.ondatachannel = receiveChannelCallback;
   await pc.setRemoteDescription(offer);
 
@@ -170,66 +181,74 @@ async function handleCandidate(candidate){
 
 
 function receiveChannelCallback(ev){
-  dataChannel = ev.channel;
-  dataChannel.binaryType = 'arraybuffer';
+  const channel = ev.channel;
+  if (channel.label == "textDataChannel"){
+    textDataChannel = channel;
 
-  dataChannel.addEventListener("open", () => {
+    textDataChannel.addEventListener("message", (ev) => {
+      onReceiveTextCallback(ev);
+    });
+  } else {
+    fileDataChannel = channel;
+    fileDataChannel.binaryType = 'arraybuffer';
 
-  });
-  dataChannel.addEventListener("close", () => {
-    closeDataChannel();
-  });
-  dataChannel.addEventListener("message", (ev) => {
-    onReceiveMessageCallback(ev);
+    fileDataChannel.addEventListener("message", (ev) => {
+      onReceiveFileCallback(ev);
+    });
+  }
+
+  channel.addEventListener("close", () => {
+    closeDataChannels();
   });
 }
 
 
-function onReceiveMessageCallback(ev) {
+function onReceiveTextCallback(ev) {
+  const data = JSON.parse(ev.data);
+  const div = document.createElement('div');
+  div.className = 'message received';
+  div.innerHTML = linkify(data.text);
+  chatBox.appendChild(div);
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+
+function onReceiveFileCallback(ev) {
   if (typeof(ev.data) === "string") {
     const data = JSON.parse(ev.data);
+    receivedFile = data.file;
+    return
+  }
 
-    if (data.type == "text") {
-      const div = document.createElement('div');
-      div.className = 'message received';
-      div.innerHTML = linkify(data.text);
-      chatBox.appendChild(div);
-      chatBox.scrollTop = chatBox.scrollHeight;
-    }else if (data.type == "file"){
-      receivedFile = data.file;
-    }
-    
-  } else {
-    console.log(`Received bytes ${ev.data.byteLength}`);
-    receiveBuffer.push(ev.data);
-    receivedSize += ev.data.byteLength;
+  console.log(`Received bytes ${ev.data.byteLength}`);
+  receiveBuffer.push(ev.data);
+  receivedSize += ev.data.byteLength;
 
-    if (receivedSize === receivedFile.filesize) {
-      console.log("received complete file")
-      const received = new Blob(receiveBuffer);
+  if (receivedSize === receivedFile.filesize) {
+    console.log("received complete file")
+    const received = new Blob(receiveBuffer);
 
-      createFileMessage("received" ,receivedFile.filename, receivedFile.filesize, URL.createObjectURL(received));
-      chatBox.scrollTop = chatBox.scrollHeight;
-      
-      receivedFile = "";
-      receiveBuffer = [];
-      receivedSize = 0;
-    }
+    createFileMessage("received" ,receivedFile.filename, receivedFile.filesize, URL.createObjectURL(received));
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    receivedFile = "";
+    receiveBuffer = [];
+    receivedSize = 0;
   }
 }
 
 
-function closeDataChannel(){
-  if (dataChannel) {
-    dataChannel.close();
-  }
-  dataChannel = null;
+function closeDataChannels(){
   pc.close();
   pc = null;
+  receivedFile = "";
+  receiveBuffer = [];
+  receivedSize = 0;
 }
 
 
 function sendData(){
+  // send text
   let text = textInput.value;
   textInput.value = "";
   if (text.trim() != '') {
@@ -239,7 +258,7 @@ function sendData(){
     chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
 
-    dataChannel.send(JSON.stringify({
+    textDataChannel.send(JSON.stringify({
       type: "text",
       timestamp: "",
       text: text
@@ -257,7 +276,7 @@ function sendData(){
   
   console.log(`File is`, file);
 
-  dataChannel.send(JSON.stringify({
+  fileDataChannel.send(JSON.stringify({
     type: "file",
     timestamp: "",
     file: {
@@ -273,7 +292,7 @@ function sendData(){
   fileReader.addEventListener('error', error => console.error('Error reading file:', error));
   fileReader.addEventListener('abort', ev => console.log('File reading aborted:', ev));
   fileReader.addEventListener('load', ev => {
-    dataChannel.send(ev.target.result);
+    fileDataChannel.send(ev.target.result);
     offset += ev.target.result.byteLength;
     console.log('send slice ', offset);
     
@@ -281,6 +300,7 @@ function sendData(){
       readSlice(offset);
     } else {
       createFileMessage("sent", file.name, file.size, "#");
+      chatBox.scrollTop = chatBox.scrollHeight;
       console.log("done")
     }
   });
