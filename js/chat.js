@@ -31,6 +31,7 @@ sendBtn.onclick = () => {
 }
 
 
+let fileMessageDiv;
 let receivedFile;
 let receiveBuffer = [];
 let receivedSize = 0;
@@ -217,18 +218,28 @@ function onReceiveFileCallback(ev) {
   if (typeof(ev.data) === "string") {
     const data = JSON.parse(ev.data);
     receivedFile = data.file;
+
+    fileMessageDiv = document.createElement('div');
+    fileMessageDiv.className = 'message received file-message';
+
+    createProgress0(fileMessageDiv);
+    chatBox.appendChild(fileMessageDiv);
+    chatBox.scrollTop = chatBox.scrollHeight;
+
     return
   }
 
-  console.log(`Received bytes ${ev.data.byteLength}`);
+  // console.log(`Received bytes ${ev.data.byteLength}`);
   receiveBuffer.push(ev.data);
   receivedSize += ev.data.byteLength;
+  fileMessageDiv.querySelector('.progress-fill').style.width = `${receivedSize / receivedFile.filesize * 100}%`;
 
   if (receivedSize === receivedFile.filesize) {
     console.log("received complete file")
     const received = new Blob(receiveBuffer);
+    
+    createProgress100(fileMessageDiv, receivedFile.filename, receivedFile.filesize, URL.createObjectURL(received));
 
-    createFileMessage("received" ,receivedFile.filename, receivedFile.filesize, URL.createObjectURL(received));
     chatBox.scrollTop = chatBox.scrollHeight;
 
     receivedFile = "";
@@ -239,7 +250,9 @@ function onReceiveFileCallback(ev) {
 
 
 function closeDataChannels(){
-  pc.close();
+  if (pc) {
+    pc.close();
+  }
   pc = null;
   receivedFile = "";
   receiveBuffer = [];
@@ -286,6 +299,12 @@ function sendData(){
     }
   }));
   
+  fileMessageDiv = document.createElement('div');
+  fileMessageDiv.className = 'message sent file-message';
+  createProgress0(fileMessageDiv);
+  chatBox.appendChild(fileMessageDiv);
+  chatBox.scrollTop = chatBox.scrollHeight;
+
   const chunkSize = 16 * 1024;
   fileReader = new FileReader();
   let offset = 0;
@@ -294,13 +313,13 @@ function sendData(){
   fileReader.addEventListener('load', ev => {
     fileDataChannel.send(ev.target.result);
     offset += ev.target.result.byteLength;
-    console.log('send slice ', offset);
+    // console.log('send slice ', offset);
     
     if (offset < file.size) {
       readSlice(offset);
+      fileMessageDiv.querySelector('.progress-fill').style.width = `${offset / file.size * 100}%`;
     } else {
-      createFileMessage("sent", file.name, file.size, "#");
-      chatBox.scrollTop = chatBox.scrollHeight;
+      createProgress100(fileMessageDiv, file.name, file.size, "#");
       console.log("done")
     }
   });
@@ -335,35 +354,43 @@ function linkify(text) {
 }
 
 
-function createFileMessage(rs, filename, filesize, downloadUrl) {
-  // Create wrapper div
-  const fileMessage = document.createElement('div');
-  fileMessage.className = `message ${rs} file-message`;
-
-  // Create icon div
+function createProgress0(node){
   const iconDiv = document.createElement('div');
   iconDiv.className = 'file-message-icon';
   iconDiv.textContent = '📎';
 
-  // Create file details div
+  const progressBarDiv = document.createElement('div');
+  progressBarDiv.className = 'progress-bar';
+
+  const progressFillDiv = document.createElement('div');
+  progressFillDiv.className = 'progress-fill';
+  progressFillDiv.style.width = '0%';
+
+  progressBarDiv.appendChild(progressFillDiv);
+  node.appendChild(iconDiv);
+  node.appendChild(progressBarDiv);
+}
+
+
+function createProgress100(node, filename, filesize, downloadUrl){
+  const progressBar = node.querySelector('.progress-bar');
+  if (progressBar) {
+    progressBar.remove();
+  }
+
   const detailsDiv = document.createElement('div');
   detailsDiv.className = 'file-message-details';
 
-  // Create link element
   const fileLink = document.createElement('a');
   fileLink.href = downloadUrl;
   fileLink.download = filename;
   fileLink.textContent = filename;
 
-  // Create file size span
   const fileSizeSpan = document.createElement('span');
   fileSizeSpan.className = 'filesize';
   fileSizeSpan.textContent = formatFileSize(filesize);
 
-  // Assemble message
   detailsDiv.appendChild(fileLink);
   detailsDiv.appendChild(fileSizeSpan);
-  fileMessage.appendChild(iconDiv);
-  fileMessage.appendChild(detailsDiv);
-  chatBox.appendChild(fileMessage);
+  node.appendChild(detailsDiv);
 }
