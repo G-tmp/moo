@@ -87,15 +87,16 @@ ws.onopen = () => {
 
 ws.onerror = (ev) => {
   console.error('WebSocket error:', ev);
-  status.innerText = "WebSocket error"
+  status.innerText = "🔴 WebSocket error"
 }
 
 function createPeerConnection(){
   try{
     pc = new RTCPeerConnection();
   }catch(error){
-    status.innerText = error
+    status.innerText = `🔴 Error`;
     // window.alert("Please enable webrtc");
+    return
   }
 
   pc.onicecandidate = ev => {
@@ -138,6 +139,11 @@ async function startConnect(){
 
   fileDataChannel.addEventListener("close", () => {
     closeDataChannels();
+  });
+
+  fileDataChannel.addEventListener("open", () => {
+    status.innerText = "🟢 Online";
+    sendBtn.disabled = false;
   });
 
 }
@@ -201,6 +207,11 @@ function receiveChannelCallback(ev){
   channel.addEventListener("close", () => {
     closeDataChannels();
   });
+
+  channel.addEventListener("open", () => {
+    status.innerText = "🟢 Online";
+    sendBtn.disabled = false;
+  });
 }
 
 
@@ -257,6 +268,8 @@ function closeDataChannels(){
   receivedFile = "";
   receiveBuffer = [];
   receivedSize = 0;
+  status.innerText = "⚪ Disconnected";
+  sendBtn.disabled = true;
 }
 
 
