@@ -1,6 +1,15 @@
 
 'use strict';
 
+function isWebRTCSupported() {
+  return !!(window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection);
+}
+
+if (!isWebRTCSupported()) {
+  alert("❌ WebRTC is not supported");
+}
+
+
 const chatBox = document.querySelector(".chat-messages");
 const sendBtn = document.getElementById("send");
 const textInput = document.getElementById("textInput");
@@ -91,13 +100,7 @@ ws.onerror = (ev) => {
 }
 
 function createPeerConnection(){
-  try{
-    pc = new RTCPeerConnection();
-  }catch(error){
-    status.innerText = `🔴 Error`;
-    // window.alert("Please enable webrtc");
-    return
-  }
+  pc = new RTCPeerConnection();
 
   pc.onicecandidate = ev => {
     const message = {
@@ -124,13 +127,18 @@ async function startConnect(){
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
   ws.send(JSON.stringify({type: 'offer', sdp: offer.sdp})); 
-
+ 
   textDataChannel.addEventListener("message", (ev) => {
     onReceiveTextCallback(ev);
   });
 
   textDataChannel.addEventListener("close", () => {
     closeDataChannels();
+    console.log(`${textDataChannel.label} closed by remote peer`);
+  });
+
+  textDataChannel.addEventListener("open", () => {
+    console.log(`${textDataChannel.label} established`);
   });
 
   fileDataChannel.addEventListener("message", (ev) => {
@@ -139,9 +147,11 @@ async function startConnect(){
 
   fileDataChannel.addEventListener("close", () => {
     closeDataChannels();
+    console.log(`${textDataChannel.label} closed by remote peer`);
   });
 
   fileDataChannel.addEventListener("open", () => {
+    console.log(`${fileDataChannel.label} established`);
     status.innerText = "🟢 Online";
     sendBtn.disabled = false;
   });
@@ -179,7 +189,7 @@ async function handleCandidate(candidate){
   }
 
   if (!candidate.candidate) {
-    // All candidates have been sent
+    // All candidates have been received
     await pc.addIceCandidate(null);
   } else {
     await pc.addIceCandidate(candidate);
@@ -206,9 +216,11 @@ function receiveChannelCallback(ev){
 
   channel.addEventListener("close", () => {
     closeDataChannels();
+    console.log(`${channel.label} closed by remote peer`);
   });
 
   channel.addEventListener("open", () => {
+    console.log(`${channel.label} established`);
     status.innerText = "🟢 Online";
     sendBtn.disabled = false;
   });
