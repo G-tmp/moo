@@ -94,9 +94,9 @@ ws.onopen = () => {
   ws.send(JSON.stringify({type: 'ready'}));
 }
 
-ws.onerror = (ev) => {
-  console.error('WebSocket error:', ev);
-  status.innerText = "🔴 WebSocket error"
+ws.onerror = (err) => {
+  console.error('WebSocket error:', err);
+  status.innerText = `🔴 WebSocket error ${wsAddr}`
 }
 
 function createPeerConnection(){
