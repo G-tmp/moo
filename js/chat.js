@@ -372,10 +372,10 @@ function formatFileSize(bytes) {
 
 
 function linkify(text) {
-  const urlPattern = /(?:https?:\/\/)?(?:www\.)?[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:[^\s]*)/gi;
-  return text.replace(urlPattern, function(url) {
-    return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
-  });
+  return text.replace(/\b((?:https?:\/\/)?(?:www\.)?(?:\d{1,3}(?:\.\d{1,3}){3}|localhost|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})(?::\d{1,5})?(?:\/\S*)?)/g, url => {
+    const href = /^https?:\/\//i.test(url) ? url : 'http://' + url;
+    return `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+  }).replace(/\n/g, '<br>');;
 }
 
 
