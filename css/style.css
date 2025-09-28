@@ -38,7 +38,6 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  padding-bottom: 2.5rem; /* space at bottom so last timestamp isn't cut off */
 }
 
 .message {
@@ -61,7 +60,7 @@ body {
   align-items: center;
   gap: 0.5rem;
   font-size: 14px;
-  max-width: 100%;
+  max-width: 50%;
   display: flex;
   position: relative; /* used when timestamp is under the bubble */
 }
@@ -114,7 +113,6 @@ body {
   display: flex;
   flex-direction: column;
   text-align: left;
-  max-width: 220px;
   overflow: hidden;
 }
 

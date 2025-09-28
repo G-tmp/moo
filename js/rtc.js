@@ -218,6 +218,7 @@ function onReceiveTextCallback(ev) {
 
 
 function onReceiveFileCallback(ev) {
+  // file meta info
   if (typeof(ev.data) === "string") {
     const data = JSON.parse(ev.data);
     receivedFile = data.file;
@@ -328,6 +329,7 @@ function sendData(){
       fileMessageDiv.querySelector('.progress-fill').style.width = `${offset / file.size * 100}%`;
     } else {
       createProgress100(fileMessageDiv, file.name, file.size, "#");
+      chatBox.scrollTop = chatBox.scrollHeight;
       console.log("done")
     }
   });
