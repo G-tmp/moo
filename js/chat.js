@@ -46,3 +46,15 @@ function linkify(text) {
   }).replace(/\n/g, '<br>');;
 }
 
+
+function getCurrentTime() {
+  const timestamp = new Date();
+
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: false
+  });
+
+  return formatter.format(timestamp);
+}

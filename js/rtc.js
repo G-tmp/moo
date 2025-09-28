@@ -208,7 +208,10 @@ function onReceiveTextCallback(ev) {
   const data = JSON.parse(ev.data);
   const div = document.createElement('div');
   div.className = 'message received';
-  div.innerHTML = linkify(data.text);
+  div.innerHTML = `
+    ${linkify(data.text)}
+    <div class="timestamp">${getCurrentTime()}</div>
+  `;
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
 }
@@ -220,7 +223,7 @@ function onReceiveFileCallback(ev) {
     receivedFile = data.file;
 
     fileMessageDiv = document.createElement('div');
-    fileMessageDiv.className = 'message received file-message';
+    fileMessageDiv.className = 'received file-message';
 
     createProgress0(fileMessageDiv);
     chatBox.appendChild(fileMessageDiv);
@@ -269,7 +272,10 @@ function sendData(){
   if (text.trim() != '') {
     const div = document.createElement('div');
     div.className = 'message sent';
-    div.innerHTML = linkify(text);
+    div.innerHTML = `
+      ${linkify(text)}
+      <div class="timestamp">${getCurrentTime()}</div>
+    `;
     chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
 
@@ -302,7 +308,7 @@ function sendData(){
   }));
   
   fileMessageDiv = document.createElement('div');
-  fileMessageDiv.className = 'message sent file-message';
+  fileMessageDiv.className = 'sent file-message';
   createProgress0(fileMessageDiv);
   chatBox.appendChild(fileMessageDiv);
   chatBox.scrollTop = chatBox.scrollHeight;
@@ -336,20 +342,12 @@ function sendData(){
 
 
 function createProgress0(node){
-  const iconDiv = document.createElement('div');
-  iconDiv.className = 'file-message-icon';
-  iconDiv.textContent = '📎';
-
-  const progressBarDiv = document.createElement('div');
-  progressBarDiv.className = 'progress-bar';
-
-  const progressFillDiv = document.createElement('div');
-  progressFillDiv.className = 'progress-fill';
-  progressFillDiv.style.width = '0%';
-
-  progressBarDiv.appendChild(progressFillDiv);
-  node.appendChild(iconDiv);
-  node.appendChild(progressBarDiv);
+  node.innerHTML = `
+    <div class="file-message-icon">🗎</div>
+    <div class="progress-bar">
+      <div class="progress-fill" style="width:0%"></div>
+    </div>
+  `;
 }
 
 
@@ -358,20 +356,13 @@ function createProgress100(node, filename, filesize, downloadUrl){
   if (progressBar) {
     progressBar.remove();
   }
-
-  const detailsDiv = document.createElement('div');
-  detailsDiv.className = 'file-message-details';
-
-  const fileLink = document.createElement('a');
-  fileLink.href = downloadUrl;
-  fileLink.download = filename;
-  fileLink.textContent = filename;
-
-  const fileSizeSpan = document.createElement('span');
-  fileSizeSpan.className = 'filesize';
-  fileSizeSpan.textContent = formatFileSize(filesize);
-
-  detailsDiv.appendChild(fileLink);
-  detailsDiv.appendChild(fileSizeSpan);
-  node.appendChild(detailsDiv);
+  
+  node.innerHTML = `
+    <div class="file-message-icon">🗎</div>
+    <div class="file-message-details">
+      <a href="${downloadUrl}" download="${filename}">${filename}</a>
+      <span class="filesize">${formatFileSize(filesize)}</span>
+    </div>
+    <div class="timestamp">${getCurrentTime()}</div>
+  `;
 }
