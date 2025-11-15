@@ -22,21 +22,20 @@ let receivedFile;
 let receiveBuffer = [];
 let receivedSize = 0;
 
+let connectionFailed = false;
 let pc;
 let fileDataChannel;
 let textDataChannel;
 let fileReader;
 
 let wsPort = ":12345";
-let host = window.location.hostname + wsPort;
-let httpAddr = "http://" + host;
-let wsAddr = "ws://" + host + "/ws";
+let wsAddr = "ws://" + window.location.hostname + wsPort + "/ws";
 
 const ws = new WebSocket(wsAddr);
 
 ws.onmessage = ev => {
   let data = JSON.parse(ev.data)
-  console.log(data)
+
   switch (data.type) {
     case 'offer':
       handleOffer(data);
@@ -66,17 +65,20 @@ ws.onmessage = ev => {
   }
 };
 
-
 ws.onopen = () => {
   ws.send(JSON.stringify({type: 'ready'}));
 }
 
 ws.onerror = (err) => {
-  console.error('WebSocket error:', err);
-  status.innerText = `🔴 WebSocket error ${wsAddr}`
+  if (!pc) {
+    console.error('WebSocket error:', err);
+    status.innerText = `🔴 WebSocket error ${wsAddr}`
+  }
 }
 
+
 function createPeerConnection(){
+  connectionFailed = false;
   pc = new RTCPeerConnection();
 
   pc.onicecandidate = ev => {
@@ -91,6 +93,31 @@ function createPeerConnection(){
     }
     ws.send(JSON.stringify(message));
   } 
+
+  pc.onconnectionstatechange = (ev) => {
+    console.log('Connection state:', pc.connectionState);
+
+    switch (pc.connectionState) {
+      case "new":
+      case "connecting":
+        status.innerText = "🔵 Connecting";
+        break;
+      case "connected":
+        status.innerText = "🟢 Online";
+        sendBtn.disabled = false;
+        break;
+      case "disconnected":
+        status.innerText = "⚪ Reconnecting";
+        sendBtn.disabled = true;
+        break;
+      case "failed":
+        connectionFailed = true;
+        closeDataChannels();
+        status.innerText = `🔴 Connection failed`
+        break;
+    }
+  }
+
 }
 
 
@@ -112,6 +139,9 @@ async function startConnect(){
   textDataChannel.addEventListener("close", () => {
     closeDataChannels();
     console.log(`${textDataChannel.label} closed by remote peer`);
+    if (!connectionFailed) {
+      status.innerText = "⚪ Peer disconnected";
+    }
   });
 
   textDataChannel.addEventListener("open", () => {
@@ -125,12 +155,13 @@ async function startConnect(){
   fileDataChannel.addEventListener("close", () => {
     closeDataChannels();
     console.log(`${textDataChannel.label} closed by remote peer`);
+    if (!connectionFailed) {
+      status.innerText = "⚪ Peer disconnected";
+    }
   });
 
   fileDataChannel.addEventListener("open", () => {
     console.log(`${fileDataChannel.label} established`);
-    status.innerText = "🟢 Online";
-    sendBtn.disabled = false;
   });
 
 }
@@ -194,12 +225,13 @@ function receiveChannelCallback(ev){
   channel.addEventListener("close", () => {
     closeDataChannels();
     console.log(`${channel.label} closed by remote peer`);
+    if (!connectionFailed) {
+      status.innerText = "⚪ Peer disconnected";
+    }
   });
 
   channel.addEventListener("open", () => {
     console.log(`${channel.label} established`);
-    status.innerText = "🟢 Online";
-    sendBtn.disabled = false;
   });
 }
 
@@ -261,7 +293,6 @@ function closeDataChannels(){
   receivedFile = "";
   receiveBuffer = [];
   receivedSize = 0;
-  status.innerText = "⚪ Disconnected";
   sendBtn.disabled = true;
 }
 
