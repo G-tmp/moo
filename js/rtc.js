@@ -26,11 +26,9 @@ let connectionFailed = false;
 let pc;
 let fileDataChannel;
 let textDataChannel;
-let fileReader;
 
-let wsPort = ":12345";
-let wsAddr = "ws://" + window.location.hostname + wsPort + "/ws";
-
+const wsPort = ":12345";
+const wsAddr = "ws://" + window.location.hostname + wsPort + "/ws";
 const ws = new WebSocket(wsAddr);
 
 ws.onmessage = ev => {
@@ -261,6 +259,7 @@ function onReceiveFileCallback(ev) {
     createProgress0(fileMessageDiv);
     chatBox.appendChild(fileMessageDiv);
     chatBox.scrollTop = chatBox.scrollHeight;
+    console.log("File receiving", receivedFile);
 
     return
   }
@@ -271,10 +270,10 @@ function onReceiveFileCallback(ev) {
   fileMessageDiv.querySelector('.progress-fill').style.width = `${receivedSize / receivedFile.filesize * 100}%`;
 
   if (receivedSize === receivedFile.filesize) {
-    console.log("received complete file")
-    const received = new Blob(receiveBuffer);
+    console.log("File received completely")
+    const blob = new Blob(receiveBuffer);
     
-    createProgress100(fileMessageDiv, receivedFile.filename, receivedFile.filesize, URL.createObjectURL(received));
+    createProgress100(fileMessageDiv, receivedFile.filename, receivedFile.filesize, URL.createObjectURL(blob));
 
     chatBox.scrollTop = chatBox.scrollHeight;
 
@@ -327,7 +326,7 @@ function sendData(){
     return;
   }
   
-  console.log(`File is`, file);
+  console.log(`File sending`, file);
 
   fileDataChannel.send(JSON.stringify({
     type: "file",
@@ -346,9 +345,9 @@ function sendData(){
   chatBox.scrollTop = chatBox.scrollHeight;
 
   const chunkSize = 16 * 1024;
-  fileReader = new FileReader();
+  const fileReader = new FileReader();
   let offset = 0;
-  fileReader.addEventListener('error', error => console.error('Error reading file:', error));
+  fileReader.addEventListener('error', error => console.error('File reading error:', error));
   fileReader.addEventListener('abort', ev => console.log('File reading aborted:', ev));
   fileReader.addEventListener('load', ev => {
     fileDataChannel.send(ev.target.result);
@@ -361,7 +360,7 @@ function sendData(){
     } else {
       createProgress100(fileMessageDiv, file.name, file.size, "#");
       chatBox.scrollTop = chatBox.scrollHeight;
-      console.log("done")
+      console.log("File sent completely")
     }
   });
 
